@@ -1,5 +1,33 @@
+import logging
+
 import requests
-from minsearch import Index
+
+
+logger = logging.getLogger(__name__)
+
+
+def load_course_data():
+    from gitsource import GithubRepositoryDataReader, chunk_documents
+
+    reader = GithubRepositoryDataReader(
+        repo_owner="DataTalksClub",
+        repo_name="llm-zoomcamp",
+        commit_id="8c1834d",
+        allowed_extensions={"md"},
+        filename_filter=lambda path: "/lessons/" in path
+    )
+
+    files = reader.read()
+    
+    documents = []
+
+    for file in files:
+        doc = file.parse()
+        documents.append(doc)
+
+    chunks = chunk_documents(documents, size=2000, step=1000)
+
+    return chunks
 
 def load_faq_data():
     docs_url = "https://datatalks.club/faq/json/courses.json"
@@ -19,10 +47,9 @@ def load_faq_data():
 
     return documents
 
-def build_index(documents):
-    index = Index(
-        text_fields=["question", "section", "answer"],
-        keyword_fields=["course"]
-    )
+def build_index(index, documents):
     index.fit(documents)
+
+    logger.debug('Index built with %s documents', len(documents))
+
     return index

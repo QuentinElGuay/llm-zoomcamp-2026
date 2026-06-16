@@ -1,3 +1,6 @@
+import logging
+
+
 INSTRUCTIONS = """
 Your task is to answer questions from the course participants
 based on the provided context.
@@ -15,6 +18,8 @@ CONTEXT:
 {context}
 """.strip()
 
+logger = logging.getLogger(__name__)
+
 
 class RAGBase:
 
@@ -22,6 +27,7 @@ class RAGBase:
         self,
         index,
         llm_client,
+        context_builder,
         instructions=INSTRUCTIONS,
         prompt_template=USER_PROMPT_TEMPLATE,
         course='llm-zoomcamp',
@@ -30,34 +36,21 @@ class RAGBase:
         self.index = index
         self.client = llm_client
         self.instructions = instructions
+        self.context_builder = context_builder
         self.prompt_template = prompt_template
         self.course = course
         self.model = model
 
-    def search(self, question):
-        boost_dict = {'question': 2.0, 'section': 0.5}
-        filter_dict = {'course': self.course}
-
+    def search(self, question, boost_dict, filter_dict, num_results=5):
         return self.index.search(
             question,
             boost_dict=boost_dict,
             filter_dict=filter_dict,
-            num_results=5
+            num_results=num_results
         )
 
-    def build_context(self, search_result):
-        lines = []
-        
-        for doc in search_result:
-            lines.append(doc['section'])
-            lines.append('Q: ' + doc['question'])
-            lines.append('A: ' + doc['answer'])
-            lines.append('')
-        
-        return '\n'.join(lines).strip()
-
     def build_prompt(self, question, search_results):
-        context = self.build_context(search_results)
+        context = self.context_builder.build(search_results)
         prompt = self.prompt_template.format(question=question, context=context)
 
         return prompt.strip()
@@ -74,10 +67,15 @@ class RAGBase:
             input=message_history,
         )
 
-        return response.output_text
+        logger.debug('Number of input tokens consumed: %d', response.usage.input_tokens)
 
-    def rag(self, question:str):
-        search_results = self.search(question)
+        return response.output_text, response.usage.input_tokens
+
+    def rag(self, question:str, boost_dict={}, filter_dict={}):
+        search_results = self.search(question, boost_dict, filter_dict)
+
+        logging.debug('Search results: %s', search_results)
+
         prompt = self.build_prompt(question, search_results)
 
         return self.ask_llm(self.instructions, prompt, self.model)
