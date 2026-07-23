@@ -1,0 +1,14 @@
+[project]
+name = "week-4"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "dotenv>=0.9.9",
+    "minsearch>=0.2.0",
+    "openai>=2.45.0",
+    "pandas>=3.0.3",
+    "pydantic>=2.13.4",
+    "requests>=2.34.2",
+]
